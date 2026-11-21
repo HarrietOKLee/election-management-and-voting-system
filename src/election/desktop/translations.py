@@ -1,4 +1,4 @@
-"""Staff-facing interface labels for the three supported desktop languages."""
+"""Interface labels for the three supported desktop languages."""
 
 from election import APP_NAME
 from election.desktop.accounting_translations import ACCOUNTING_TRANSLATIONS
@@ -14,6 +14,8 @@ from election.desktop.counting_outcome_translations import COUNT_OUTCOME_TRANSLA
 from election.desktop.counting_round_translations import COUNTING_ROUND_TRANSLATIONS
 from election.desktop.counting_scope_translations import COUNTING_SCOPE_TRANSLATIONS
 from election.desktop.election_completion_translations import ELECTION_COMPLETION_TRANSLATIONS
+from election.desktop.epolling_results_translations import EPOLLING_RESULTS_TRANSLATIONS
+from election.desktop.epolling_translations import EPOLLING_TRANSLATIONS
 from election.desktop.fallback_translations import FALLBACK_TRANSLATIONS
 from election.desktop.fallback_turnout_translations import FALLBACK_TURNOUT_TRANSLATIONS
 from election.desktop.invalid_reason_translations import INVALID_REASON_TRANSLATIONS
@@ -1941,6 +1943,8 @@ for translation_group in (
     LOCAL_RECOUNT_TRANSLATIONS,
     CONSTITUENCY_RECOUNT_TRANSLATIONS,
     ELECTION_COMPLETION_TRANSLATIONS,
+    EPOLLING_TRANSLATIONS,
+    EPOLLING_RESULTS_TRANSLATIONS,
 ):
     for language, labels in translation_group.items():
         TRANSLATIONS[language].update(labels)

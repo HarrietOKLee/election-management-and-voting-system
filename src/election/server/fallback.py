@@ -251,7 +251,7 @@ def fallback_router(
         required = "supervisor" if action == "approve" else "polling_officer"
         if actor.role != required:
             raise HTTPException(403, detail={"code": required + "_required"})
-        scope = turnout_scope(db, actor, station_id, writable=True)
+        scope = turnout_scope(db, actor, station_id, writable=True, paper_only=True)
         schedule = locked_schedule(db, scope["election"]["id"])
         if isinstance(data, FallbackApproval):
             password_hash = db.scalar(

@@ -341,7 +341,7 @@ def turnout_router(
         role = "supervisor" if action == "approve" else "polling_officer"
         if actor.role != role:
             raise HTTPException(403, detail={"code": role + "_required"})
-        turnout_scope(db, actor, station_id, writable=True)
+        turnout_scope(db, actor, station_id, writable=True, paper_only=True)
         _, constituency, election = station_scope(db, actor, station_id)
         if isinstance(data, TurnoutApproval):
             # Reconfirm the current credential even for a cached approval outcome.

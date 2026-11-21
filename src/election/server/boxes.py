@@ -24,7 +24,7 @@ from election.server.box_state import (
     milestone_view,
 )
 from election.server.models import Account, AuditEvent
-from election.server.station_access import station_scope
+from election.server.station_access import require_paper_election, station_scope
 from election.server.station_models import PollingStation
 from election.server.timestamps import utc_time
 
@@ -139,6 +139,7 @@ def box_router(
         if actor.role != role:
             raise HTTPException(403, detail={"code": role + "_required"})
         station, constituency, election = station_scope(db, actor, station_id, write=True)
+        require_paper_election(election)
         digest = hashlib.sha256(
             json.dumps(
                 {

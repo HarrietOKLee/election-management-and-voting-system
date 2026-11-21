@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+import tomllib
 from pathlib import Path
 
 from PySide6.QtCore import Qt, QUrl
@@ -10,6 +11,15 @@ from PySide6.QtQuickControls2 import QQuickStyle
 
 from election import APP_NAME, APP_TITLE
 from election.desktop.controller import DesktopController
+
+
+def _project_version() -> str:
+    desktop_directory = Path(__file__).parent
+    project_directory = (
+        desktop_directory if getattr(sys, "frozen", False) else desktop_directory.parents[2]
+    )
+    with (project_directory / "pyproject.toml").open("rb") as project:
+        return str(tomllib.load(project)["project"]["version"])
 
 
 def main() -> None:
@@ -32,6 +42,7 @@ def main() -> None:
     app = QGuiApplication(sys.argv[:1])
     app.styleHints().setTabFocusBehavior(Qt.TabFocusBehavior.TabFocusAllControls)
     app.setApplicationName(APP_NAME)
+    app.setApplicationVersion(_project_version())
     app.setOrganizationName("Election System Project")
     app.setApplicationDisplayName(APP_TITLE)
     app.setWindowIcon(QIcon(str(Path(__file__).with_name("assets") / "election-desk.png")))

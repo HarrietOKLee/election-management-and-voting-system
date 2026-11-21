@@ -1,7 +1,7 @@
 [project]
 name = "election-desk"
-version = "1.0.0"
-description = "Election Desk desktop application for physical-ballot election operations"
+version = "1.1.0"
+description = "Desktop application for in-person electronic voting and paper-ballot election operations"
 requires-python = ">=3.14,<3.15"
 dependencies = []
 

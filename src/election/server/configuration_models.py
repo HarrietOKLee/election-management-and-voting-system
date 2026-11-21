@@ -11,13 +11,19 @@ from election.server.db import Base
 
 class Election(Base):
     __tablename__ = "elections"
-    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+    __table_args__ = (
+        CheckConstraint(
+            "voting_method IN ('paper', 'electronic')", name="ck_elections_voting_method"
+        ),
+        {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"},
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     request_id: Mapped[str] = mapped_column(String(36), unique=True)
     creation_digest: Mapped[str] = mapped_column(String(64))
     name: Mapped[str] = mapped_column(String(160))
     status: Mapped[str] = mapped_column(String(24))
+    voting_method: Mapped[str] = mapped_column(String(16), server_default="paper")
     revision: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6))
     updated_at: Mapped[datetime] = mapped_column(DATETIME(fsp=6))

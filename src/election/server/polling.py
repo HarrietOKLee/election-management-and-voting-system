@@ -78,15 +78,30 @@ def record_view(row: PollingRecord) -> dict[str, Any]:
     }
 
 
-def latest_records(db: Session, station_id: int, *, lock: bool = False) -> dict[str, PollingRecord]:
+def latest_records(
+    db: Session, station_id: int, *, lock: bool = False, approved_only: bool = False
+) -> dict[str, PollingRecord]:
     query = (
         select(PollingRecord)
         .where(PollingRecord.station_id == station_id)
         .order_by(PollingRecord.revision)
     )
+    if approved_only:
+        query = query.where(PollingRecord.status == "approved")
     if lock:
         query = query.with_for_update().execution_options(populate_existing=True)
     return {row.kind: row for row in db.scalars(query)}
+
+
+def voting_service(
+    db: Session, station_id: int, *, lock: bool = False
+) -> Literal["not_open", "open", "queued", "ended"]:
+    approved = latest_records(db, station_id, lock=lock, approved_only=True)
+    if "service_completion" in approved:
+        return "ended"
+    if "opening" not in approved:
+        return "not_open"
+    return "queued" if "admission_closure" in approved else "open"
 
 
 def invalid() -> None:
@@ -140,7 +155,12 @@ def polling_router(
         schedule = db.get(ElectionSchedule, election.id)
         return {
             "context": {
-                "election": {"id": election.id, "name": election.name, "status": election.status},
+                "election": {
+                    "id": election.id,
+                    "name": election.name,
+                    "status": election.status,
+                    "voting_method": election.voting_method,
+                },
                 "constituency": {
                     "id": constituency.id,
                     "name": constituency.name,
@@ -156,6 +176,9 @@ def polling_router(
             if schedule
             else None,
             "items": [record_view(row) for row in latest_records(db, station_id).values()],
+            "voting_service": (
+                voting_service(db, station_id) if election.voting_method == "electronic" else None
+            ),
         }
 
     @router.get("/audit")

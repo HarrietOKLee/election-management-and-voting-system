@@ -363,7 +363,7 @@ def counting_scopes_router(
     ) -> dict[str, Any]:
         if actor.role != "counting_officer":
             raise HTTPException(403, detail={"code": "counting_officer_required"})
-        turnout_scope(db, actor, station_id, writable=True)
+        turnout_scope(db, actor, station_id, writable=True, paper_only=True)
         options = scope_options(db, actor, station_id)
         if not options["counting_applicable"]:
             raise HTTPException(409, detail={"code": "counting_station_required"})

@@ -11,7 +11,6 @@ Open Font License, Version 1.1; see OFL-NotoSansCJK.txt in this directory.
 Upstream repository: https://github.com/notofonts/noto-cjk
 Upstream commit: f8d157532fbfaeda587e826d4cd5b21a49186f7c
 Source path: Sans/Variable/TTF/NotoSansCJKtc-VF.ttf
-Derivation and verification: ../../docs/report-font.md
 
 Redistributions of the bundled font must retain this copyright notice and
 the accompanying license. The font must not be sold by itself. This notice

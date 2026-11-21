@@ -26,14 +26,29 @@ ApplicationWindow {
     readonly property color accent: "#1967d2"
     readonly property color line: "#e1e7f0"
     readonly property bool administrator: state.account.role === "administrator"
+    readonly property bool voterMode: controller.epolling.state.stage !== "inactive"
+    readonly property var operationalElection: state.election || state.active_election || ({})
+    readonly property bool electronicElection: operationalElection.voting_method === "electronic"
+    readonly property bool epollingResultsAvailable: state.account.role === "supervisor"
+        && controller.workspace.state.contexts.some(row => row.election.voting_method === "electronic")
     property string currentPage: "account"
     readonly property bool stationPage: ["polling", "stock", "allocations", "stockSnapshots", "specialPapers", "counterReturns", "turnout", "fallback", "complaints",
-        "complaintPeriods", "queue", "boxes", "accounting", "countingScopes", "countingRounds", "recovery", "outages", "constituency_results"].indexOf(currentPage) >= 0
+        "complaintPeriods", "queue", "boxes", "accounting", "countingScopes", "countingRounds", "recovery", "outages",
+        "constituency_results", "epolling_results"].indexOf(currentPage) >= 0
+    readonly property bool paperPage: ["stock", "allocations", "stockSnapshots", "specialPapers", "counterReturns",
+        "turnout", "fallback", "boxes", "accounting", "countingScopes", "countingRounds", "recovery",
+        "constituency_results", "election_completion"].indexOf(currentPage) >= 0
     onSignedInChanged: if (!signedIn) currentPage = "account"
     onAdministratorChanged: if (!administrator) currentPage = "account"
+    onEpollingResultsAvailableChanged: if (!epollingResultsAvailable && currentPage === "epolling_results")
+        currentPage = "account"
+    onElectronicElectionChanged: if (electronicElection && paperPage) {
+        currentPage = "polling"
+        controller.polling.open()
+    }
     onCurrentPageChanged: Qt.callLater(function() { if (scroll.contentItem) scroll.contentItem.contentY = 0 })
     onActiveFocusItemChanged: Qt.callLater(function() {
-        window.revealIn(sidebarScroll, window.activeFocusItem)
+        window.revealIn(window.voterMode ? epollingView : sidebarScroll, window.activeFocusItem)
     })
 
     function t(key) { return words[key] || key }
@@ -147,9 +162,25 @@ ApplicationWindow {
                 Layout.minimumWidth: 180
                 Layout.maximumWidth: 480
                 spacing: 3
-                Label { text: window.t("app_name"); color: window.ink; font.pixelSize: 20; font.weight: Font.Medium; Layout.fillWidth: true; wrapMode: Text.WordWrap }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Label {
+                        text: window.t("app_name")
+                        color: window.ink
+                        font.pixelSize: 20
+                        font.weight: Font.Medium
+                    }
+                    Caption {
+                        objectName: "applicationVersionLabel"
+                        text: "v" + Qt.application.version
+                    }
+                    Item { Layout.fillWidth: true }
+                }
                 Caption {
-                    text: window.signedIn ? window.t(window.state.account.role || "") + " · " + (window.state.account.username || "") : window.t("election_management")
+                    text: window.voterMode ? window.t("epolling_title") : window.signedIn
+                        ? window.t(window.state.account.role || "") + " · " + (window.state.account.username || "")
+                        : window.t("election_management")
                     font.pixelSize: 11
                     Layout.fillWidth: true
                     wrapMode: Text.NoWrap
@@ -158,6 +189,7 @@ ApplicationWindow {
             }
             Item { Layout.fillWidth: true }
             RowLayout {
+                visible: !window.voterMode
                 Layout.minimumWidth: 80
                 Layout.maximumWidth: 180
                 spacing: 8
@@ -174,6 +206,7 @@ ApplicationWindow {
                 }
             }
             Button {
+                visible: !window.voterMode
                 text: window.t("refresh")
                 flat: true
                 onClicked: controller.refresh()
@@ -181,6 +214,7 @@ ApplicationWindow {
             }
             ComboBox {
                 id: languageBox
+                objectName: "languagePicker"
                 implicitWidth: 132
                 model: [{label: "繁體中文", code: "tc"}, {label: "简体中文", code: "sc"}, {label: "English", code: "en"}]
                 textRole: "label"
@@ -194,6 +228,7 @@ ApplicationWindow {
 
     footer: Rectangle {
         height: 44
+        visible: !window.voterMode
         color: "white"
         Rectangle { width: parent.width; height: 1; color: window.line }
         RowLayout {
@@ -206,6 +241,7 @@ ApplicationWindow {
 
     RowLayout {
         anchors.fill: parent
+        visible: !window.voterMode
         spacing: 0
         Rectangle {
             id: sidebar
@@ -328,6 +364,7 @@ ApplicationWindow {
                     onClicked: { window.currentPage = "staff"; controller.staff.open() }
                 }
                 Button {
+                    objectName: "pollingNavigation"
                     text: window.t("polling"); Layout.fillWidth: true; flat: true
                     visible: !window.administrator
                     highlighted: window.currentPage === "polling"
@@ -342,7 +379,7 @@ ApplicationWindow {
                 Button {
                     id: stockNavigation
                     text: window.t("received_stock"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "stock"
                     Material.background: window.currentPage === "stock" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -366,7 +403,7 @@ ApplicationWindow {
                     id: allocationNavigation
                     objectName: "allocationNavigation"
                     text: window.t("allocation_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "allocations"
                     Material.background: window.currentPage === "allocations" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -390,7 +427,7 @@ ApplicationWindow {
                     id: stockSnapshotsNavigation
                     objectName: "stockSnapshotsNavigation"
                     text: window.t("snapshot_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "stockSnapshots"
                     Material.background: window.currentPage === "stockSnapshots" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -414,7 +451,7 @@ ApplicationWindow {
                     id: specialPapersNavigation
                     objectName: "specialPapersNavigation"
                     text: window.t("special_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "specialPapers"
                     Material.background: window.currentPage === "specialPapers" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -438,7 +475,7 @@ ApplicationWindow {
                     id: counterReturnsNavigation
                     objectName: "counterReturnsNavigation"
                     text: window.t("counter_return_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "counterReturns"
                     Material.background: window.currentPage === "counterReturns" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -459,7 +496,7 @@ ApplicationWindow {
                     id: turnoutNavigation
                     objectName: "turnoutNavigation"
                     text: window.t("turnout_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "turnout"
                     Material.background: window.currentPage === "turnout" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -479,7 +516,7 @@ ApplicationWindow {
                     id: fallbackNavigation
                     objectName: "fallbackNavigation"
                     text: window.t("fallback_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "fallback"
                     Material.background: window.currentPage === "fallback" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -573,7 +610,7 @@ ApplicationWindow {
                     id: boxesNavigation
                     objectName: "boxesNavigation"
                     text: window.t("boxes"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "boxes"
                     Material.background: window.currentPage === "boxes" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -593,7 +630,7 @@ ApplicationWindow {
                     id: accountingNavigation
                     objectName: "accountingNavigation"
                     text: window.t("accounting_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "accounting"
                     Material.background: window.currentPage === "accounting" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -613,7 +650,7 @@ ApplicationWindow {
                     id: countingScopesNavigation
                     objectName: "countingScopesNavigation"
                     text: window.t("counting_scopes_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "countingScopes"
                     Material.background: window.currentPage === "countingScopes" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -633,7 +670,7 @@ ApplicationWindow {
                     id: countingRoundsNavigation
                     objectName: "countingRoundsNavigation"
                     text: window.t("f1_title"); Layout.fillWidth: true; flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "countingRounds"
                     Material.background: window.currentPage === "countingRounds" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -655,7 +692,7 @@ ApplicationWindow {
                     text: window.t("recovery_title")
                     Layout.fillWidth: true
                     flat: true
-                    visible: !window.administrator
+                    visible: !window.administrator && !window.electronicElection
                     highlighted: window.currentPage === "recovery"
                     Material.background: highlighted ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -702,10 +739,35 @@ ApplicationWindow {
                     }
                 }
                 Button {
+                    id: epollingResultsNavigation
+                    objectName: "epollingResultsNavigation"
+                    text: window.t("epolling_results_title")
+                    Layout.fillWidth: true
+                    flat: true
+                    visible: window.epollingResultsAvailable
+                    highlighted: window.currentPage === "epolling_results"
+                    Material.background: highlighted ? "#dceaff" : "transparent"
+                    Material.roundedScale: Material.FullScale
+                    implicitHeight: Math.max(48, contentItem.implicitHeight + 20)
+                    contentItem: Text {
+                        text: epollingResultsNavigation.text
+                        textFormat: Text.PlainText
+                        font: epollingResultsNavigation.font
+                        color: window.ink
+                        wrapMode: Text.WordWrap
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    onClicked: {
+                        window.currentPage = "epolling_results"
+                        controller.workspace.open()
+                    }
+                }
+                Button {
                     id: constituencyResultsNavigation
                     objectName: "constituencyResultsNavigation"
                     text: window.t("constituency_results_title"); Layout.fillWidth: true; flat: true
-                    visible: window.state.account.role === "supervisor"
+                    visible: window.state.account.role === "supervisor" && !window.electronicElection
                     highlighted: window.currentPage === "constituency_results"
                     Material.background: window.currentPage === "constituency_results" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -727,7 +789,7 @@ ApplicationWindow {
                     text: window.t("election_completion_navigation")
                     Layout.fillWidth: true
                     flat: true
-                    visible: window.state.account.role === "supervisor"
+                    visible: window.state.account.role === "supervisor" && !window.electronicElection
                     highlighted: window.currentPage === "election_completion"
                     Material.background: window.currentPage === "election_completion" ? "#dceaff" : "transparent"
                     Material.roundedScale: Material.FullScale
@@ -1017,7 +1079,62 @@ ApplicationWindow {
                     Layout.fillWidth: true
                     Layout.leftMargin: 28; Layout.rightMargin: 28; Layout.bottomMargin: 28
                     spacing: 24
+                    FormPanel {
+                        id: epollingLaunch
+                        readonly property var pollingState: controller.polling.state
+                        readonly property bool online: window.state.connection === "connected"
+                        readonly property string unavailable: {
+                            if (!online) return "epolling_offline"
+                            if (window.operationalElection.status !== "active") return "epolling_unavailable"
+                            if (pollingState.voting_service === "ended") return "epolling_service_ended"
+                            if (!pollingState.refreshing
+                                    && !["open", "queued"].includes(pollingState.voting_service))
+                                return "epolling_not_open"
+                            return ""
+                        }
+                        visible: window.currentPage === "polling" && window.electronicElection
+                            && pollingState.role === "polling_officer" && !!pollingState.station_id
+                        implicitHeight: launchLayout.implicitHeight + 32
+                        ColumnLayout {
+                            id: launchLayout
+                            anchors.fill: parent
+                            anchors.margins: 16
+                            spacing: 12
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 16
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    Label {
+                                        text: window.t("epolling_title")
+                                        color: window.ink
+                                        font.pixelSize: 20
+                                        font.weight: Font.Medium
+                                    }
+                                    FormCaption {
+                                        text: window.t(epollingLaunch.unavailable
+                                            || (epollingLaunch.pollingState.voting_service === "queued"
+                                                ? "epolling_queued_hint" : "epolling_start_hint"))
+                                    }
+                                }
+                                EPollingPrimaryButton {
+                                    objectName: "epollingStart"
+                                    text: window.t("epolling_start")
+                                    working: !!epollingLaunch.unavailable || epollingLaunch.pollingState.refreshing
+                                        || epollingLaunch.pollingState.busy
+                                    onClicked: controller.epolling.start(epollingLaunch.pollingState.station_id)
+                                    onReveal: control => window.revealField(control)
+                                }
+                            }
+                            FormNotice {
+                                words: window.words
+                                error: controller.epolling.state.error
+                                onReveal: control => window.revealField(control)
+                            }
+                        }
+                    }
                     StationWorkspace {
+                        visible: window.currentPage !== "epolling_results"
                         Layout.fillWidth: true
                         workspace: controller.workspace
                         words: window.words
@@ -1149,6 +1266,15 @@ ApplicationWindow {
                         locale: window.state.locale
                         onReveal: control => window.revealField(control)
                     }
+                    EPollingResultsPage {
+                        visible: window.currentPage === "epolling_results" && window.epollingResultsAvailable
+                        Layout.fillWidth: true
+                        results: controller.epollingResults
+                        workspace: controller.workspace
+                        words: window.words
+                        online: window.state.connection === "connected"
+                        onReveal: control => window.revealField(control)
+                    }
                     CountingScopesPage {
                         visible: window.currentPage === "countingScopes"
                         Layout.fillWidth: true
@@ -1169,5 +1295,14 @@ ApplicationWindow {
                 Item { Layout.preferredHeight: 12 }
             }
         }
+    }
+
+    EPollingPage {
+        id: epollingView
+        anchors.fill: parent
+        visible: window.voterMode
+        epolling: controller.epolling
+        words: window.words
+        online: window.state.connection === "connected"
     }
 }

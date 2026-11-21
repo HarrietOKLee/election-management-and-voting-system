@@ -135,6 +135,30 @@ Rectangle {
                 Accessible.name: card.t(card.nameKey)
                 onTextEdited: card.config.setField(card.kind, "name", text)
             }
+            TextCaption { visible: votingMethodPicker.visible; text: card.t("voting_method") }
+            ComboBox {
+                id: votingMethodPicker
+                objectName: "votingMethodPicker"
+                visible: card.kind === "election"
+                Layout.fillWidth: true
+                enabled: !card.editorState.busy && !card.editorState.read_only
+                model: ["paper", "electronic"]
+                currentIndex: card.form.voting_method === "electronic" ? 1 : 0
+                displayText: card.t("voting_method_" + model[currentIndex])
+                Accessible.name: card.t("voting_method")
+                delegate: ItemDelegate {
+                    required property string modelData
+                    width: votingMethodPicker.width
+                    text: card.t("voting_method_" + modelData)
+                }
+                onActivated: card.config.setField("election", "voting_method", model[currentIndex])
+                onActiveFocusChanged: if (activeFocus) Qt.callLater(function() { card.reveal(votingMethodPicker) })
+            }
+            TextCaption {
+                visible: votingMethodPicker.visible && card.form.voting_method === "electronic"
+                text: card.t("e_polling_demo_note")
+                font.pixelSize: 12
+            }
             TextCaption { visible: card.kind === "constituency" || card.kind === "station" || card.kind === "counter"; text: card.t(card.kind + "_code") }
             Input {
                 visible: card.kind === "constituency" || card.kind === "station" || card.kind === "counter"

@@ -18,12 +18,15 @@ from election.demo.client import DemoAPI, DemoError, private_write
 ROOT = Path(__file__).resolve().parents[3]
 HKT = timezone(timedelta(hours=8))
 STAGES = ("polling", "counting", "results")
+VOTING_METHODS = ("paper", "electronic")
 ROLES = {
     "administrator": ("demo_admin", "Demo Administrator"),
     "polling_officer": ("demo_polling", "Demo Polling Officer"),
     "counting_officer": ("demo_counting", "Demo Counting Officer"),
     "supervisor": ("demo_supervisor", "Demo Supervisor"),
 }
+EPOLLING_TERMINAL = "epolling_terminal"
+EPOLLING_ACCOUNT = ("demo_epolling", "Demo E-polling Officer")
 
 
 def run_docker(config: Path, *arguments: str, capture: bool = False) -> str:
@@ -121,7 +124,8 @@ def prepare_installation(directory: Path, state: dict[str, Any], port: int) -> t
                 "password": secrets.token_urlsafe(24),
             }
         document = yaml.safe_load((ROOT / "config.example.yml").read_text(encoding="utf-8"))
-        suffix = hashlib.sha256(str(directory).encode()).hexdigest()[:8]
+        # A fresh import needs fresh Docker volumes even if an older import used this path.
+        suffix = state["import_id"].replace("-", "")[:12]
         document["name"] = "election-demo-" + suffix
         document["x-election"]["server"].update(host="localhost", bind="127.0.0.1", port=port)
         document["x-election"]["storage"]["mysql"] = str(directory / "mysql")
@@ -202,6 +206,7 @@ def authenticate(api: DemoAPI, args: argparse.Namespace) -> None:
 def prepare_configuration(api: DemoAPI) -> None:
     context = api.state["context"]
     scenario = context["scenario"]
+    voting_method = api.state.get("voting_method", "paper")
     elections = api.request("GET", "/api/elections")["items"]
     saved = api.state["steps"].get("setup/election")
     pending_create = api.state.get("pending_steps", {}).get("setup/election")
@@ -211,20 +216,23 @@ def prepare_configuration(api: DemoAPI) -> None:
             "Import requires a separate empty demo server, or this import's original "
             "dataset. Other elections were found; nothing will be overwritten."
         )
+    payload = {"name": scenario["election_name"], "request_id": api.key("setup/election")}
+    if voting_method == "electronic":
+        payload["voting_method"] = voting_method
     election = api.step(
         "setup/election",
         "POST",
         "/api/elections",
-        {
-            "name": scenario["election_name"],
-            "request_id": api.key("setup/election"),
-        },
+        payload,
     )
     if any(row["id"] != election["id"] for row in elections):
         raise DemoError(
             "Other elections were found while recovering this demo. "
             "No existing election will be changed."
         )
+    live_election = next((row for row in elections if row["id"] == election["id"]), election)
+    if live_election.get("voting_method", "paper") != voting_method:
+        raise DemoError("The saved election uses a different voting method.")
     context["election_id"] = election["id"]
     base = f"/api/elections/{election['id']}"
     constituency = api.step(
@@ -258,15 +266,16 @@ def prepare_configuration(api: DemoAPI) -> None:
         },
     )
     context["station_id"] = station["id"]
-    context["counters"] = [
-        api.step(
-            f"setup/counter-{index}",
-            "POST",
-            constituency_base + f"/stations/{station['id']}/counters",
-            {**row, "request_id": api.key(f"setup/counter-{index}")},
-        )
-        for index, row in enumerate(scenario["counters"], 1)
-    ]
+    if voting_method == "paper":
+        context["counters"] = [
+            api.step(
+                f"setup/counter-{index}",
+                "POST",
+                constituency_base + f"/stations/{station['id']}/counters",
+                {**row, "request_id": api.key(f"setup/counter-{index}")},
+            )
+            for index, row in enumerate(scenario["counters"], 1)
+        ]
     schedule_data = {
         "election_date": context["election_date"],
         "revision": 0,
@@ -301,25 +310,26 @@ def prepare_configuration(api: DemoAPI) -> None:
     api.save()
 
 
-def prepare_accounts(api: DemoAPI) -> None:
+def prepare_accounts(api: DemoAPI, account_names: dict[str, tuple[str, str]]) -> None:
     directory = api.request("GET", "/api/accounts")["items"]
-    for role, (username, name) in ROLES.items():
-        accounts = api.state["accounts"]
+    accounts = api.state["accounts"]
+    for key, (username, name) in account_names.items():
+        role = "polling_officer" if key == EPOLLING_TERMINAL else key
         existing = next((row for row in directory if row["username"] == username), None)
-        if role not in accounts:
+        if key not in accounts:
             if existing:
                 raise DemoError(
                     f"Account {username} already exists outside this import; "
                     "use a fresh demo server."
                 )
-            accounts[role] = {
+            accounts[key] = {
                 "username": username,
                 "temporary_password": secrets.token_urlsafe(24),
                 "password": secrets.token_urlsafe(24),
                 "role": role,
             }
             api.save()
-        saved = accounts[role]
+        saved = accounts[key]
         station_ids = [] if role == "administrator" else [api.state["context"]["station_id"]]
         if existing and (existing["role"] != role or existing["station_ids"] != station_ids):
             raise DemoError(f"Account {username} no longer matches this demo's role/assignments.")
@@ -379,8 +389,9 @@ def prepare_accounts(api: DemoAPI) -> None:
 
 
 def write_presenter_files(api: DemoAPI, directory: Path) -> None:
+    electronic = api.state["voting_method"] == "electronic"
     lines = [
-        "# Private demo account sheet",
+        "# Private e-polling demo account sheet" if electronic else "# Private demo account sheet",
         "",
         f"Server: {api.server}",
         f"Stage: {api.state['stage']}",
@@ -389,8 +400,12 @@ def write_presenter_files(api: DemoAPI, directory: Path) -> None:
         "| Role | Username | Password |",
         "| --- | --- | --- |",
     ]
-    for role, account in api.state["accounts"].items():
-        lines.append(f"| {role} | {account['username']} | {account['password']} |")
+    accounts = api.state["accounts"]
+    for key in (*ROLES, EPOLLING_TERMINAL):
+        if key in accounts:
+            account = accounts[key]
+            role = "polling_officer (e-polling terminal)" if key == EPOLLING_TERMINAL else key
+            lines.append(f"| {role} | {account['username']} | {account['password']} |")
     lines += [
         "",
         "All first-login password changes and station assignments are complete.",
@@ -398,13 +413,24 @@ def write_presenter_files(api: DemoAPI, directory: Path) -> None:
         "This private sheet and state.json contain passwords; keep them out of shared slides.",
         "",
     ]
+    if electronic:
+        username = accounts[EPOLLING_TERMINAL]["username"]
+        lines += [
+            "The e-polling election is active and the station opening is approved.",
+            f"Sign in as **`{username}`** and select **Polling operations → Start e-polling**.",
+            "After each vote, select **Done** and then **Start next voter** after check-in.",
+            "Sign in as **`demo_supervisor`** to open **Live e-polling results**.",
+            "Use [ca.pem](ca.pem) as the desktop client's public CA.",
+            "",
+        ]
     private_write(directory / "ACCOUNTS.md", "\n".join(lines))
 
 
 def import_demo(api: DemoAPI, stage: str) -> None:
     from election.demo.counting import prepare_counting, prepare_results
-    from election.demo.polling import finish_polling, prepare_polling
+    from election.demo.polling import finish_polling, open_polling, prepare_polling
 
+    electronic = api.state["voting_method"] == "electronic"
     current = api.state.get("stage")
     if current and STAGES.index(stage) < STAGES.index(current):
         raise DemoError(
@@ -412,7 +438,15 @@ def import_demo(api: DemoAPI, stage: str) -> None:
             "and another port for a separate rehearsal."
         )
     prepare_configuration(api)
-    prepare_accounts(api)
+    account_names = ROLES
+    if electronic:
+        account_names = {**ROLES, EPOLLING_TERMINAL: EPOLLING_ACCOUNT}
+        accounts = api.state["accounts"]
+        if accounts.get("polling_officer", {}).get("username") == EPOLLING_ACCOUNT[0]:
+            # Keep the existing terminal credentials and the actor of any pending opening step.
+            accounts[EPOLLING_TERMINAL] = accounts.pop("polling_officer")
+            api.save()
+    prepare_accounts(api, account_names)
     context = api.state["context"]
     api.step(
         "setup/activate",
@@ -423,7 +457,18 @@ def import_demo(api: DemoAPI, stage: str) -> None:
             "schedule_revision": 1,
         },
     )
-    prepare_polling(api, context)
+    if electronic:
+        open_polling(api, context, polling_account=EPOLLING_TERMINAL)
+        polling = api.as_role(EPOLLING_TERMINAL)
+        view = polling.request("GET", f"/api/workspace/stations/{context['station_id']}/polling")
+        if (
+            view["context"]["election"]["status"] != "active"
+            or view["context"]["election"]["voting_method"] != "electronic"
+            or view["voting_service"] != "open"
+        ):
+            raise DemoError("The e-polling station is not open for new arrivals.")
+    else:
+        prepare_polling(api, context)
     if stage in ("counting", "results"):
         finish_polling(api, context)
         prepare_counting(api, context)
@@ -437,8 +482,8 @@ def import_demo(api: DemoAPI, stage: str) -> None:
                 api.state_path.parent / f"demo-results.{extension}",
             )
     # Verify role scope through independent authenticated reads.
-    for role in ("polling_officer", "counting_officer", "supervisor"):
-        stations = api.as_role(role).request("GET", "/api/workspace/stations")["items"]
+    for key in (name for name in account_names if name != "administrator"):
+        stations = api.as_role(key).request("GET", "/api/workspace/stations")["items"]
         if [row["station"]["id"] for row in stations] != [context["station_id"]]:
             raise DemoError("Demo station readback did not match the intended assignment.")
     api.state["stage"] = stage
@@ -452,22 +497,39 @@ def main() -> None:
         child = commands.add_parser(command)
         child.add_argument("--stage", choices=STAGES, default="polling")
         child.add_argument(
+            "--voting-method",
+            choices=VOTING_METHODS,
+            help=(
+                "Defaults to electronic for polling and paper for counting or results."
+                if command == "start"
+                else "Defaults to paper."
+            ),
+        )
+        child.add_argument(
             "--directory",
             type=Path,
-            default=ROOT / ".runtime" / ("demo" if command == "start" else "demo-import"),
         )
         child.add_argument("--scenario", type=Path, default=ROOT / "demo" / "scenario.json")
         child.add_argument(
             "--date", help="Past election date YYYY-MM-DD; defaults to yesterday in Hong Kong"
         )
         if command == "start":
-            child.add_argument("--port", type=int, default=8444)
+            child.add_argument("--port", type=int)
         else:
             child.add_argument("--server", required=True)
             child.add_argument("--ca", required=True, type=Path)
             child.add_argument("--admin", default="admin")
     args = parser.parse_args()
-    directory = args.directory.resolve()
+    voting_method = args.voting_method or (
+        "electronic" if args.command == "start" and args.stage == "polling" else "paper"
+    )
+    electronic = voting_method == "electronic"
+    if electronic and args.stage != "polling":
+        parser.error("E-polling demos use --stage polling.")
+    default_name = "demo" if args.command == "start" else "demo-import"
+    if electronic:
+        default_name += "-e-polling"
+    directory = (args.directory or ROOT / ".runtime" / default_name).resolve()
     api = None
     lock = directory / "import.lock"
     locked = False
@@ -501,10 +563,16 @@ def main() -> None:
             raise DemoError(
                 "Scenario/date changed after import started. Use a fresh demo directory."
             )
+        if state_path.exists() and state.get("voting_method", "paper") != voting_method:
+            raise DemoError(
+                "Voting method changed after import started. Use a fresh demo directory."
+            )
+        state["voting_method"] = voting_method
         if args.command == "start":
-            if not 1024 <= args.port <= 65535:
+            port = args.port if args.port is not None else (8445 if electronic else 8444)
+            if not 1024 <= port <= 65535:
                 raise DemoError("Choose a demo port between 1024 and 65535.")
-            server, ca = prepare_installation(directory, state, args.port)
+            server, ca = prepare_installation(directory, state, port)
         else:
             server, ca = args.server.rstrip("/"), args.ca.resolve()
         identity = {"server": server, "ca_sha256": hashlib.sha256(ca.read_bytes()).hexdigest()}

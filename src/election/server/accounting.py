@@ -60,7 +60,7 @@ def accounting_scope(
 ) -> dict[str, Any]:
     # This takes ActiveElection → Election → Constituency before schedule/stock locks.
     # A destination assignment never grants this source-station permission.
-    return turnout_scope(db, actor, station_id, writable=writable)
+    return turnout_scope(db, actor, station_id, writable=writable, paper_only=writable)
 
 
 def accounting_record(

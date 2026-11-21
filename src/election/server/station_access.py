@@ -11,6 +11,11 @@ from election.server.staff_models import StationAssignment
 from election.server.station_models import PollingStation
 
 
+def require_paper_election(election: Election) -> None:
+    if election.voting_method != "paper":
+        raise HTTPException(409, detail={"code": "paper_election_required"})
+
+
 def station_scope(
     db: Session, actor: Account, station_id: int, *, write: bool = False
 ) -> tuple[PollingStation, Constituency, Election]:

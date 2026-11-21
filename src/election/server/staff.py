@@ -104,6 +104,7 @@ def station_context_view(
             "id": election.id,
             "name": election.name,
             "status": election.status,
+            "voting_method": election.voting_method,
             "revision": election.revision,
         },
         "constituency": {
@@ -305,6 +306,7 @@ def staff_router(
                 Election.id.label("election_id"),
                 Election.name.label("election_name"),
                 Election.status.label("election_status"),
+                Election.voting_method.label("voting_method"),
                 Election.revision.label("election_revision"),
             )
             .select_from(PollingStation)
@@ -321,6 +323,7 @@ def staff_router(
                         "id": row["election_id"],
                         "name": row["election_name"],
                         "status": row["election_status"],
+                        "voting_method": row["voting_method"],
                         "revision": row["election_revision"],
                     },
                     "constituency": {

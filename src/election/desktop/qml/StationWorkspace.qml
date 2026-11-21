@@ -8,7 +8,12 @@ ColumnLayout {
     id: page
     required property var workspace
     required property var words
+    property bool compact: false
+    property string votingMethod: ""
     readonly property var editorState: workspace.state
+    readonly property var contexts: votingMethod
+        ? editorState.contexts.filter(row => row.election.voting_method === votingMethod)
+        : editorState.contexts
     readonly property var selected: editorState.selected
     readonly property var election: selected.election || ({})
     readonly property var constituency: selected.constituency || ({})
@@ -25,8 +30,8 @@ ColumnLayout {
             + context.constituency.name + " · " + context.station.code + " · " + context.station.name
     }
     function selectedIndex() {
-        for (var i = 0; i < editorState.contexts.length; i++)
-            if (editorState.contexts[i].station.id === station.id) return i
+        for (var i = 0; i < contexts.length; i++)
+            if (contexts[i].station.id === station.id) return i
         return -1
     }
     function restoreStationPicker() {
@@ -70,6 +75,7 @@ ColumnLayout {
 
     RowLayout {
         Layout.fillWidth: true
+        visible: !page.compact
         Label {
             text: page.t("station_context")
             textFormat: Text.PlainText
@@ -115,9 +121,9 @@ ColumnLayout {
                 id: stationPicker
                 objectName: "workspaceStationPicker"
                 Layout.fillWidth: true
-                visible: page.editorState.contexts.length > 0
+                visible: page.contexts.length > 0
                 enabled: !page.editorState.busy
-                model: page.editorState.contexts
+                model: page.contexts
                 currentIndex: page.selectedIndex()
                 displayText: currentIndex >= 0
                     ? page.contextLabel(model[currentIndex]) : page.t("select_station")
@@ -155,19 +161,19 @@ ColumnLayout {
                     Qt.callLater(function() { page.reveal(stationPicker) })
             }
             FormCaption {
-                visible: page.editorState.contexts.length === 0
+                visible: page.contexts.length === 0
                 text: page.t(page.editorState.busy || page.editorState.refreshing
                     ? "loading" : "no_assigned_stations")
             }
             FormCaption {
-                visible: page.editorState.contexts.length > 0 && !page.hasSelected
+                visible: page.contexts.length > 0 && page.selectedIndex() < 0
                 text: page.t("select_station")
             }
         }
     }
 
     FormPanel {
-        visible: page.hasSelected
+        visible: page.hasSelected && !page.compact
         implicitHeight: contextLayout.implicitHeight + 40
         ColumnLayout {
             id: contextLayout

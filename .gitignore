@@ -52,11 +52,19 @@ __pycache__/
 /dist/
 *.egg-info/
 
-# macOS/Windows metadata and editor temporary files.
+# Temporary files, editor recovery files and OS metadata.
 .DS_Store
 ._*
 Thumbs.db
 [Dd]esktop.ini
+~$*
+.#*
+\#*\#
 *~
 *.swp
 *.swo
+*.tmp
+*.temp
+*.bak
+*.orig
+*.rej

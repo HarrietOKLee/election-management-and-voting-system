@@ -45,6 +45,7 @@ class PollingController(QObject):
             "context": {},
             "schedule": {},
             "items": [],
+            "voting_service": "",
             "kind": "opening",
             "record": {},
             "history": [],
@@ -144,7 +145,11 @@ class PollingController(QObject):
         ):
             self._error("request_failed")
             return
-        self._state.update(items=items, schedule=data.get("schedule") or {})
+        self._state.update(
+            items=items,
+            schedule=data.get("schedule") or {},
+            voting_service=data.get("voting_service") or "",
+        )
         row: dict[str, Any] = next((row for row in items if row["kind"] == self._state["kind"]), {})
         if accept:
             self._accept_record(row)

@@ -2,7 +2,7 @@
 
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
@@ -25,13 +25,17 @@ from election.server.configuration_store import (
 from election.server.invalid_ballot_reasons import seed_invalid_ballot_reasons
 from election.server.models import Account, AuditEvent
 
+VotingMethod = Literal["paper", "electronic"]
+
 
 class ElectionCreate(NamedInput):
     request_id: UUID
+    voting_method: VotingMethod = "paper"
 
 
 class ElectionEdit(NamedInput):
     revision: int = Field(strict=True, ge=1)
+    voting_method: VotingMethod | None = None
 
 
 class ConstituencyInput(CodedInput):
@@ -64,6 +68,7 @@ def election_view(row: Election) -> dict[str, Any]:
         "id": row.id,
         "name": row.name,
         "status": row.status,
+        "voting_method": row.voting_method,
         "revision": row.revision,
         "created_at": row.created_at.replace(tzinfo=UTC),
         "updated_at": row.updated_at.replace(tzinfo=UTC),
@@ -123,7 +128,10 @@ def configuration_router(
     def create_election(
         data: ElectionCreate, response: Response, db: Database, actor: Admin
     ) -> dict[str, Any]:
-        digest = creation_digest(data)
+        # Paper is the legacy behavior. Keep its digest compatible with old create retries.
+        digest = creation_digest(
+            NamedInput(name=data.name) if data.voting_method == "paper" else data
+        )
         existing = db.scalar(select(Election).where(Election.request_id == str(data.request_id)))
         if existing:
             if existing.creation_digest != digest:
@@ -133,6 +141,7 @@ def configuration_router(
         row = Election(
             name=data.name,
             status="draft",
+            voting_method=data.voting_method,
             revision=1,
             created_at=timestamp(),
             updated_at=timestamp(),
@@ -148,7 +157,12 @@ def configuration_router(
                 db,
                 actor,
                 "election_created",
-                {"election_id": row.id, "revision": 1, "name": row.name},
+                {
+                    "election_id": row.id,
+                    "revision": 1,
+                    "name": row.name,
+                    "voting_method": row.voting_method,
+                },
             )
             db.commit()
         except IntegrityError:
@@ -174,7 +188,9 @@ def configuration_router(
         row = find_election(db, election_id, lock=True)
         if row.revision != data.revision:
             raise HTTPException(409, detail={"code": "revision_conflict"})
-        before = row.name
+        before = {"name": row.name, "voting_method": row.voting_method}
+        if data.voting_method is not None:
+            row.voting_method = data.voting_method
         row.name, row.revision, row.updated_at = data.name, row.revision + 1, timestamp()
         audit(
             db,
@@ -183,8 +199,8 @@ def configuration_router(
             {
                 "election_id": row.id,
                 "revision": row.revision,
-                "before": {"name": before},
-                "after": {"name": row.name},
+                "before": before,
+                "after": {"name": row.name, "voting_method": row.voting_method},
             },
         )
         db.commit()

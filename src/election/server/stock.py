@@ -18,6 +18,7 @@ from election.server.configuration_models import Constituency, Election
 from election.server.models import Account, AuditEvent
 from election.server.special_paper_inventory import preserve_special_reserves
 from election.server.staff_models import StationAssignment
+from election.server.station_access import require_paper_election
 from election.server.station_models import PollingStation
 from election.server.stock_inventory import preserve_allocations
 from election.server.stock_models import StockReceipt, StockReceiptRange, StockReceiptRevision
@@ -89,6 +90,7 @@ def stock_scope(
     election = db.scalar(query)
     assert election is not None
     if write:
+        require_paper_election(election)
         constituency = db.scalar(
             select(Constituency)
             .where(Constituency.id == constituency.id)

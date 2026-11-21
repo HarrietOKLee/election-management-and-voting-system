@@ -97,11 +97,11 @@ def lifecycle_router(
             }
         }
 
-    def complete_configuration(db: Session, election_id: int) -> None:
+    def complete_configuration(db: Session, election: Election) -> None:
         constituency_ids = list(
             db.scalars(
                 select(Constituency.id)
-                .where(Constituency.election_id == election_id)
+                .where(Constituency.election_id == election.id)
                 .with_for_update()
             )
         )
@@ -121,14 +121,15 @@ def lifecycle_router(
                 )
             )
             complete = complete and candidate_id is not None and bool(station_ids)
-            for station_id in station_ids:
-                counter_id = db.scalar(
-                    select(IssuanceCounter.id)
-                    .where(IssuanceCounter.station_id == station_id)
-                    .limit(1)
-                    .with_for_update()
-                )
-                complete = complete and counter_id is not None
+            if election.voting_method == "paper":
+                for station_id in station_ids:
+                    counter_id = db.scalar(
+                        select(IssuanceCounter.id)
+                        .where(IssuanceCounter.station_id == station_id)
+                        .limit(1)
+                        .with_for_update()
+                    )
+                    complete = complete and counter_id is not None
         if not complete:
             raise HTTPException(409, detail={"code": "election_configuration_incomplete"})
 
@@ -208,7 +209,7 @@ def lifecycle_router(
             raise HTTPException(409, detail={"code": "schedule_required"})
         if planned.revision != data.schedule_revision:
             raise HTTPException(409, detail={"code": "revision_conflict"})
-        complete_configuration(db, election_id)
+        complete_configuration(db, election)
         before = {
             "status": election.status,
             "election_revision": election.revision,

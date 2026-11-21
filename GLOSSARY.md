@@ -1,6 +1,6 @@
 # Election Desk
 
-Terms for the staff application that administers physical-ballot polling and records counting results.
+Terms for the application that administers polling and records counting results.
 
 ## Language
 
@@ -21,6 +21,16 @@ A person standing for election in a constituency and appearing in that constitue
 A physical paper ballot issued for an elector to record a voting choice.
 _Avoid_: Electronic vote
 
+**E-polling (電子投票)**:
+In-person polling in which electors select a candidate and cast an electronic vote on screen.
+_Avoid_: EPR fallback mode
+
+**Electronic vote**:
+An elector's confirmed choice of one constituency candidate, submitted through e-polling.
+
+**Voting session**:
+A Polling Officer's single-use authorization for an elector to cast an electronic vote at the officer's assigned polling station after check-in.
+
 **Ballot issuance (發票)**:
 The act of providing a physical ballot to an elector for voting.
 _Avoid_: Invoicing, invoice issuance
@@ -30,7 +40,7 @@ The transfer of ballot stock to an issuance counter for later issuance to electo
 _Avoid_: Ballot issuance to electors
 
 **Polling station (投票站)**:
-A physical location where electors attend to cast their ballots, assigned to one constituency for the election.
+A physical location where electors attend to vote, assigned to one constituency for the election.
 
 **Counting station (點票站)**:
 A location that counts its own ballot boxes, boxes received from other polling stations in the same constituency, or both.

@@ -27,7 +27,7 @@ LISTS = {
     "counter": "counters",
 }
 FIELDS = {
-    "election": ("name",),
+    "election": ("name", "voting_method"),
     "constituency": ("name", "code"),
     "candidate": ("name", "ballot_number"),
     "station": ("name", "code", "counting_mode", "destination_station_id"),
@@ -37,6 +37,8 @@ FIELDS = {
 
 def empty_form(kind: str) -> dict[str, str]:
     result = dict.fromkeys(FIELDS[kind], "")
+    if kind == "election":
+        result["voting_method"] = "paper"
     if kind == "station":
         result["counting_mode"] = "local"
     return result

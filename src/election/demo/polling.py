@@ -5,9 +5,14 @@ from typing import Any
 
 
 def _approved_polling_event(
-    api: Any, context: dict[str, Any], kind: str, event_at: str
+    api: Any,
+    context: dict[str, Any],
+    kind: str,
+    event_at: str,
+    *,
+    polling_account: str = "polling_officer",
 ) -> dict[str, Any]:
-    polling = api.as_role("polling_officer")
+    polling = api.as_role(polling_account)
     supervisor = api.as_role("supervisor")
     path = f"/api/workspace/stations/{context['station_id']}/polling/{kind}"
     label = f"polling/{kind}"
@@ -41,6 +46,14 @@ def _approved_polling_event(
     return approved
 
 
+def open_polling(
+    api: Any, context: dict[str, Any], *, polling_account: str = "polling_officer"
+) -> None:
+    context.setdefault("polling", {})["opening"] = _approved_polling_event(
+        api, context, "opening", context["times"]["opening"], polling_account=polling_account
+    )
+
+
 def prepare_polling(api: Any, context: dict[str, Any]) -> None:
     """Create 520 received papers, 300 ordinary issues, and reviewed turnout."""
     polling = api.as_role("polling_officer")
@@ -50,9 +63,7 @@ def prepare_polling(api: Any, context: dict[str, Any]) -> None:
     scenario = context["scenario"]
     stock = scenario["stock"]
     series = stock["series"]
-    context.setdefault("polling", {})["opening"] = _approved_polling_event(
-        api, context, "opening", times["opening"]
-    )
+    open_polling(api, context)
     context["stock_receipt"] = polling.step(
         "polling/stock",
         "POST",

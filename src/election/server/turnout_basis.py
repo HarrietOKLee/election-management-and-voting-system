@@ -14,6 +14,7 @@ from election.server.fallback_models import FallbackRecord, FallbackRevision
 from election.server.lifecycle_models import ActiveElection, ElectionSchedule
 from election.server.models import Account
 from election.server.reporting_periods import period_bounds
+from election.server.station_access import require_paper_election
 from election.server.stock import stock_scope
 from election.server.stock_serials import MAX_STOCK_QUANTITY
 from election.server.stock_snapshot_models import StockSnapshot, StockSnapshotRevision
@@ -40,6 +41,7 @@ def turnout_scope(
     station_id: int,
     *,
     writable: bool = False,
+    paper_only: bool = False,
 ) -> dict[str, Any]:
     scope = stock_scope(db, actor, station_id)
     # Match activation/configuration first, then the physical-stock write locks.
@@ -65,6 +67,8 @@ def turnout_scope(
         active is None or active.election_id != election.id or election.status != "active"
     ):
         raise HTTPException(409, detail={"code": "active_election_required"})
+    if paper_only:
+        require_paper_election(election)
     return stock_scope(db, actor, station_id)
 
 

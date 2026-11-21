@@ -7,7 +7,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files
 
 root = Path(SPECPATH)
-with (root / "pyproject.toml").open("rb") as source:
+project_metadata = root / "pyproject.toml"
+with project_metadata.open("rb") as source:
     build_version = tomllib.load(source)["project"]["version"]
 
 desktop = root / "src/election/desktop"
@@ -21,6 +22,7 @@ for path in sorted(qml.rglob("*.qml")):
     destination = (Path("election/desktop/qml") / path.relative_to(qml).parent).as_posix()
     datas.append((str(path), destination))
 datas.append((str(desktop / "assets/election-desk.png"), "election/desktop/assets"))
+datas.append((str(project_metadata), "election/desktop"))
 datas.extend(collect_data_files("tzdata"))
 
 a = Analysis(

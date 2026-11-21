@@ -42,6 +42,9 @@ from election.desktop.counter_returns import CounterReturnsController
 from election.desktop.counting_rounds import CountingRoundsController
 from election.desktop.counting_scopes import CountingScopesController
 from election.desktop.election_completion import ElectionCompletionController
+from election.desktop.epolling import EpollingController
+from election.desktop.epolling_recovery import VotingSessionJournal
+from election.desktop.epolling_results import EpollingResultsController
 from election.desktop.fallback import FallbackController
 from election.desktop.invalid_reasons import InvalidReasonsController
 from election.desktop.lifecycle import LifecycleController
@@ -100,6 +103,13 @@ class DesktopController(QObject):
             / "operational-commands"
         )
         self._command_journal = CommandJournal(Path(journal_directory))
+        self._epolling = EpollingController(
+            self._authorized_request,
+            VotingSessionJournal(Path(journal_directory)),
+            self.signOut,
+            self,
+        )
+        self._epolling_results = EpollingResultsController(self._authorized_request, self)
         self._recovery = RecoveryController(self._authorized_request, self._command_journal, self)
         self._outages = OutagesController(
             self._authorized_request, self, download=self._authorized_download
@@ -186,6 +196,7 @@ class DesktopController(QObject):
         )
         self._election_completion.stateChanged.connect(self._workspace.stateChanged.emit)
         self._election_completion.stateChanged.connect(self._completion_context_changed)
+        self._epolling.stateChanged.connect(self._workspace.stateChanged.emit)
         for station_controller in self._station_controllers:
             station_controller.stateChanged.connect(self._workspace.stateChanged.emit)
         self._workspace.contextChanged.connect(self._workspace_changed)
@@ -246,6 +257,14 @@ class DesktopController(QObject):
     @Property(QObject, constant=True)
     def polling(self) -> PollingController:
         return self._polling
+
+    @Property(QObject, constant=True)
+    def epolling(self) -> EpollingController:
+        return self._epolling
+
+    @Property(QObject, constant=True)
+    def epollingResults(self) -> EpollingResultsController:
+        return self._epolling_results
 
     @Property(QObject, constant=True)
     def stock(self) -> StockController:
@@ -324,6 +343,8 @@ class DesktopController(QObject):
         return self._accounting
 
     def _workspace_has_pending_changes(self) -> bool:
+        if self._epolling.active:
+            return True
         for station_controller in self._station_controllers:
             state = station_controller.property("state")
             if state["dirty"] or state["busy"]:
@@ -342,6 +363,7 @@ class DesktopController(QObject):
     ) -> bool:
         if (
             self._context_writes
+            or self._epolling.active
             or self._recovery.recount_context_locked()
             or self._counting_rounds.recount_context_locked()
             or self._constituency_results.recount_context_locked()
@@ -378,6 +400,7 @@ class DesktopController(QObject):
         context = self._workspace.property("state")["selected"]
         for station_controller in self._station_controllers:
             station_controller.set_context(context)
+        self._epolling_results.set_context(context)
         election = context.get("election")
         if election is not None or not self._retain_completion_context():
             self._state["election"] = election or self._state["active_election"]
@@ -641,6 +664,9 @@ class DesktopController(QObject):
 
     def _configuration_access(self) -> None:
         account = self._state["account"]
+        self._epolling.set_account(
+            self._state["server_url"], account if self._state["phase"] == "workspace" else {}
+        )
         administrator = (
             self._state["phase"] == "workspace"
             and account.get("role") == "administrator"
@@ -920,8 +946,18 @@ class DesktopController(QObject):
                 self._request("/api/auth/me", "GET", None, profile, self._error, token=self._token)
 
         def profile(data: dict[str, Any]) -> None:
+            if self._epolling.active and (
+                data.get("id") != self._state["account"].get("id")
+                or data.get("role") != "polling_officer"
+                or data.get("must_change_password", True)
+            ):
+                self._access_changed()
+                return
             self._state["account"] = data
             self._configuration_access()
+            if self._epolling.active:
+                self.stateChanged.emit()
+                return
             self._configuration.refresh()
             self._lifecycle.refresh()
             self._staff.refresh()
@@ -941,6 +977,7 @@ class DesktopController(QObject):
             self._counting_rounds.refresh()
             self._outages.refresh()
             self._constituency_results.refresh()
+            self._epolling_results.refresh()
             self._election_completion.refresh()
             self._fallback.refresh()
             self._turnout.refresh()
@@ -966,6 +1003,8 @@ class DesktopController(QObject):
             active_election=None,
             capabilities={},
         )
+        self._epolling.reset()
+        self._epolling_results.reset()
         self._configuration.reset()
         self._lifecycle.reset()
         self._staff.reset()

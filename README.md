@@ -1,100 +1,181 @@
-# Election Desk
+<p align="center">
+  <img src="src/election/desktop/assets/election-desk.png" width="88" alt="">
+</p>
 
-**COMP 8500SEF — Software Engineering**
+<h1 align="center">Election Desk</h1>
 
-Election Desk is a course project based on **Topic 2: Election Management and Voting System**.
+<p align="center"><strong>From polling station setup to reviewed election results.</strong></p>
 
-This desktop application supports election staff from election setup and polling-station
-operations to ballot accounting, manual count recording, recounts, approvals and results reporting.
-It records operational activities and aggregate figures; electors cast their votes on paper ballots.
+<p align="center">
+  A Windows and macOS desktop application for election staff.
+  Run in-person e-polling or administer paper-ballot polling and manual counts in one shared system.
+</p>
 
-Built with **Python 3.14**, **PySide6/Qt Quick**, **FastAPI** and **MySQL 8.4**. The repository includes
-the application source, requirements specification, architecture decisions and fictional demo data.
+<p align="center">
+  <a href="#workflow-demos">Watch the workflows</a> ·
+  <a href="#run-locally-and-load-sample-data">Try the sample election</a> ·
+  <a href="demo/README.md#present-e-polling-live">Presenter walkthrough</a>
+</p>
+
+## Workflow demos
+
+### Administrator · Review election setup
+
+Review the active election’s constituency and candidates, then open Harbour Community Hall
+to see its two issuance counters.
+
+![Administrator opening election and station setup in Election Desk](demo/media/admin-workflow.gif)
+
+<details>
+<summary>Election setup screenshot</summary>
+
+![Administrator election setup screen](demo/media/admin-election.png)
+
+</details>
+
+### Polling Officer · Run the polling station
+
+Open the assigned station, check the approved opening record, and save a queue observation.
+
+![Polling Officer working in the assigned station in Election Desk](demo/media/polling-workflow.gif)
+
+<details>
+<summary>Polling workspace screenshot</summary>
+
+![Polling Officer station workspace](demo/media/polling-desk.png)
+
+</details>
+
+### Live e-polling · Voting terminal and Supervisor
+
+The voting terminal and Supervisor client share one server. Follow the full voting screen on
+the left as two terminals take turns casting demo votes and the Supervisor’s tally updates
+automatically on the right.
+
+[![Full voting screen on the left and the Supervisor’s live tally on the right. Open the full-size recording.](readme/screenshots/e-polling-live.gif)](readme/screenshots/e-polling-live.gif)
+
+<details>
+<summary>View both application screens</summary>
+
+<table>
+  <tr>
+    <th align="left">Voting terminal</th>
+    <th align="left">Supervisor live results</th>
+  </tr>
+  <tr>
+    <td width="65%" valign="top"><a href="readme/screenshots/e-polling-voter.jpg"><img src="readme/screenshots/e-polling-voter.jpg" alt="Private e-polling session with two candidates"></a></td>
+    <td width="35%" valign="top"><a href="readme/screenshots/e-polling-live-results.jpg"><img src="readme/screenshots/e-polling-live-results.jpg" alt="Supervisor station tally after two electronic votes"></a></td>
+  </tr>
+</table>
+
+</details>
+
+[Presenter walkthrough](demo/README.md#present-e-polling-live) · [Demo screenshots and reports](readme/README.md)
+
+### English report samples
+
+These PDFs are exports from the paper-ballot demo.
+
+| Report | What it shows |
+| --- | --- |
+| [Station turnout](readme/reports/paper-turnout-en.pdf) | The approved interval with 300 voters. |
+| [F4 final count](readme/reports/paper-final-count-f4-en.pdf) | The approved count and its source records, with 295 valid and 5 invalid papers. |
+| [Finalized constituency results](readme/reports/paper-constituency-results-en.pdf) | The reviewed outcome, with 170 votes for Alex Chan and 125 for Jamie Wong. |
+
+## Main features
+
+| Workflow | What staff can do |
+| --- | --- |
+| Election setup | Configure constituencies, candidates, polling stations, issuance counters, schedules and staff assignments. |
+| E-polling | Run successive private voting sessions and view live station totals as a Supervisor. |
+| Polling operations | Record opening and closing, track ballot stock and turnout, and log queues, complaints and ballot-box handovers. |
+| Counting and review | Reconcile ballot stock, record manual counts and recounts, approve specific record revisions, and preserve finalized results. |
+| Reporting | Export PDF and CSV reports in English, Traditional Chinese and Simplified Chinese. |
+
+Desktop clients connect over HTTPS to a central FastAPI service backed by MySQL 8.4. The
+desktop interface uses Python 3.14 and PySide6/Qt Quick. E-polling builds on the same election
+setup, station assignments, and opening approvals as paper-ballot polling, adding single-use
+voting sessions and a live station tally.
 
 ## Run locally and load sample data
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and
 [Docker Desktop](https://docs.docker.com/get-started/get-docker/), then start Docker Desktop
 with Linux containers enabled.
-Download and extract this repository, or clone it. Open PowerShell or a terminal in the project
-folder and run these two commands in order:
+Open PowerShell or a terminal in the project folder. Run the first command, wait for
+`Demo ready: polling`, then run the second.
 
 ```sh
 uv run --locked python scripts/prepare_demo.py start
-uv run --locked --directory src python -m election.desktop --server https://localhost:8444 --ca ../.runtime/demo/ca.pem
+uv run --locked --directory src python -m election.desktop --server https://localhost:8445 --ca ../.runtime/demo-e-polling/ca.pem
 ```
 
-Wait for the first command to finish successfully before running the second. The first run needs
-internet access and may take several minutes to download Python, dependencies and Docker images.
+The first run needs internet access and may take several minutes to download Python, dependencies,
+and Docker images.
 
-The first command starts the API and MySQL in Docker and imports the fictional election and
-demo accounts automatically. No separate sample-data import is needed. The second opens the
-desktop application using Python on your computer. The API is available only locally at
-`https://localhost:8444`. Certificates are generated automatically; no configuration editing or
-manual certificate installation is needed.
+The first command builds the API image from your current checkout and starts the API and MySQL
+in Docker. It creates the demo accounts, activates the e-polling election, and approves the
+opening of Harbour Community Hall. The second command launches the desktop app and connects it to
+the demo on port 8445.
 
-The sample data comes from [`demo/scenario.json`](demo/scenario.json), included in the repository.
-On a fresh clone, the first command creates `.runtime/demo/` automatically for local database files,
-certificates and generated passwords. You do not need to create or download this folder yourself;
-it is intentionally excluded from Git.
+The sample data comes from [demo/scenario.json](demo/scenario.json). The first command creates
+`.runtime/demo-e-polling/` for the local database, certificate, and generated passwords. The
+directory is excluded from Git.
 
 ### Sign in
 
-Open **`.runtime/demo/ACCOUNTS.md`** in the project folder for the generated passwords.
-Start with `demo_admin` to explore the election setup, or use an account below for its workflow:
+Open `.runtime/demo-e-polling/ACCOUNTS.md` in the project folder for your demo passwords.
+
+- **Start voting.** Sign in as `demo_epolling`, select **Harbour Community Hall**, and open
+  **Polling operations → Start e-polling**. After a vote is recorded, choose **Done**, check
+  the next elector's eligibility, then choose **Start next voter**. The terminal stays signed in.
+- **Watch the live results.** Run the desktop command again in another terminal to keep the
+  voting screen open. Sign in as `demo_supervisor`, open **Live e-polling results**, and select
+  **Harbour Community Hall**. The station's totals refresh every five seconds.
 
 | Username | Role |
 | --- | --- |
 | `demo_admin` | Election setup and staff management |
-| `demo_polling` | Polling records, ballot stock, turnout and complaints |
-| `demo_counting` | Ballot accounting and count entry |
-| `demo_supervisor` | Review, approval and finalization |
+| `demo_polling` | Polling operations |
+| `demo_counting` | Ballot accounting and manual count entry for paper elections |
+| `demo_supervisor` | Polling approvals and live e-polling results |
+| `demo_epolling` | Dedicated e-polling terminal |
 
-The demo accounts are ready to use, with station assignments already configured. Select
-**Harbour Community Hall** when asked for a station. The interface supports English,
-Traditional Chinese and Simplified Chinese. Use the Supervisor's generated password when
-confirming an approval.
-
-The initial demo is prepared for polling. To explore counting and finalized results, follow the
-[demo walkthrough](demo/README.md#advance-through-the-demonstration).
+The [paper-ballot walkthrough](demo/README.md#paper-ballot-demo) covers stock, counting, and
+finalized results.
 
 ### Stop and resume
 
-Close the desktop application, then stop the local server:
+Close the desktop application, then stop the local server.
 
 ```sh
-docker compose -f .runtime/demo/config.yml stop
+docker compose -f .runtime/demo-e-polling/config.yml stop
 ```
 
-The demo data is retained. Repeat the two startup commands to resume the polling demo. If you
-advanced to counting or results, restart with that same stage as explained in the walkthrough.
-Local demo files are stored under `.runtime/`, which is excluded from Git.
-
-## Alternative: run the server with Python
-
-For the simplest setup, use Docker for the API and database as shown above. The desktop already
-runs with Python. To run the API without Docker as well, follow the
-[agent development reference](docs/agents/development.md#manual-api-development). This requires a separately installed MySQL 8.4 server,
-a fresh database and localhost HTTPS certificates, so it takes more setup.
-
-## Main features
-
-- Election, constituency, candidate, station and staff management.
-- Ballot stock, turnout, complaints, queues and ballot-box handover.
-- Ballot accounting, manual count recording, recounts, approvals and preserved result history.
-- PDF and CSV reports in three languages.
+Repeat the two startup commands to resume the e-polling demo with the saved data and passwords.
 
 ## Build the desktop app
 
-PyInstaller builds a standalone Windows `.exe` or a self-contained macOS `.app`, plus a
-distribution ZIP, with the included ballot-box application icon. Run the build on the target
-operating system; see [macOS and Windows build instructions](docs/BUILDING.md). The build workflow
-also produces downloadable artifacts on native Windows and macOS runners.
+Run these commands from the project folder on the target operating system.
 
-## Further documentation
+```sh
+uv sync --locked
+uv run --locked --no-sync python build.py
+```
+
+PyInstaller produces a standalone Windows `.exe` or a self-contained macOS `.app` and a
+distribution ZIP. The native desktop build workflow also produces downloadable artifacts.
+[Desktop build workflow](.github/workflows/build-desktop.yml)
+
+Back up an existing server and apply migration `0036_electronic_voting` before connecting v1.1.0
+clients. The migration preserves existing elections as paper-ballot elections.
+
+## Project resources
 
 - [Demo data and presentation walkthrough](demo/README.md)
-- [Requirements and project specification](docs/SPECIFICATION.md)
-- [Server deployment for multiple computers](docs/QUICKSTART.md)
-- [macOS and Windows desktop builds](docs/BUILDING.md)
-- [Architecture and design decisions](docs/adr/) and [domain glossary](GLOSSARY.md)
+- [Server configuration example](config.example.yml)
+- [Domain glossary](GLOSSARY.md)
+
+---
+
+COMP 8500SEF — Software Engineering · Topic 2: Election Management and Voting System
