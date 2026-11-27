@@ -111,13 +111,13 @@ System tests (manual, on a rehearsal copy of the paper-ballot demo server, stage
 
 | ID | Requirement | Pre-condition | Steps | Expected result | Result |
 | --- | --- | --- | --- | --- | --- |
-| TC-STK-01 | FR-STK-01, FR-STK-07 | Signed in as `demo_polling` | Open "Received stock and reserves" and "Counter stock allocations". | 500 ordinary, 10 replacement, 10 tendered; two allocations of 200; 100 held centrally | NOT RUN — screenshot pending |
-| TC-STK-02 | FR-STK-05 | Same | Allocate `DEMO` 000401–000450 to Counter 1. | Saved; central ordinary stock becomes 50 | NOT RUN — no execution evidence yet |
-| TC-STK-03 | FR-STK-06 | TC-STK-02 done | Allocate `DEMO` 000440–000460 to Counter 2. | Rejected as overlapping; nothing saved | NOT RUN — no execution evidence yet |
-| TC-STK-04 | FR-STK-06 | Same | Allocate `DEMO` 000505–000506 (replacement reserve) to Counter 1. | Rejected: not ordinary stock | NOT RUN — no execution evidence yet |
-| TC-STK-05 | FR-STK-09 | TC-STK-02 done | Correct the TC-STK-02 allocation to 000401–000440 without a reason, then with a reason. | Without reason: rejected. With reason: revision 2 saved; revision 1 visible in history | NOT RUN — no execution evidence yet |
-| TC-STK-06 | FR-STK-03 | Same | Record a new receipt of series `DEMO` 000500–000600 as ordinary. | Rejected as overlapping received stock | NOT RUN — no execution evidence yet |
-| TC-STK-07 | FR-STK-11 | Same | Export the allocation statement as PDF in English and in Traditional Chinese. | Two files; serial numbers keep leading zeros | NOT RUN — no execution evidence yet |
+| TC-STK-01 | FR-STK-01, FR-STK-07 | Signed in as `demo_polling` | Open "Received stock and reserves" and "Counter stock allocations". | 500 ordinary, 10 replacement, 10 tendered; two allocations of 200; 100 held centrally | NOT RUN — paper-ballot rehearsal server unavailable |
+| TC-STK-02 | FR-STK-05 | Same | Allocate `DEMO` 000401–000450 to Counter 1. | Saved; central ordinary stock becomes 50 | NOT RUN — ballot rehearsal server unavailable |
+| TC-STK-03 | FR-STK-06 | TC-STK-02 done | Allocate `DEMO` 000440–000460 to Counter 2. | Rejected as overlapping; nothing saved | NOT RUN — ballot rehearsal server unavailable |
+| TC-STK-04 | FR-STK-06 | Same | Allocate `DEMO` 000505–000506 (replacement reserve) to Counter 1. | Rejected: not ordinary stock | NOT RUN — ballot rehearsal server unavailable |
+| TC-STK-05 | FR-STK-09 | TC-STK-02 done | Correct the TC-STK-02 allocation to 000401–000440 without a reason, then with a reason. | Without reason: rejected. With reason: revision 2 saved; revision 1 visible in history | NOT RUN — ballot rehearsal server unavailable |
+| TC-STK-06 | FR-STK-03 | Same | Record a new receipt of series `DEMO` 000500–000600 as ordinary. | Rejected as overlapping received stock | NOT RUN — ballot rehearsal server unavailable |
+| TC-STK-07 | FR-STK-11 | Same | Export the allocation statement as PDF in English and in Traditional Chinese. | Two files; serial numbers keep leading zeros | NOT RUN — ballot rehearsal server unavailable |
 
 Equivalence partitions for an allocation range: inside free ordinary stock (valid), partly
 owned by another desk (invalid), inside a reserve pool (invalid), outside received stock
